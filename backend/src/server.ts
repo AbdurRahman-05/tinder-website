@@ -6,9 +6,12 @@ const PORT = parseInt(env.PORT, 10) || 5000;
 
 async function startServer() {
   try {
+    const dbTarget = env.DATABASE_URL ? env.DATABASE_URL.replace(/:\/\/.*@/, '://[credentials]@') : 'NOT_SET';
+    console.log(`Attempting database connection to: ${dbTarget}`);
+
     // Verify database connectivity
     await prisma.$connect();
-    console.log('Successfully connected to PostgreSQL database (prism_db)');
+    console.log('Successfully connected to database');
 
     const server = app.listen(PORT, () => {
       console.log(`PRISM Backend running on http://localhost:${PORT}`);
