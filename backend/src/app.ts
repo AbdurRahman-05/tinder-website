@@ -65,6 +65,21 @@ app.use('/api/', generalLimiter);
 // Serve local static uploaded profile photos
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
+// Root welcome route
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    name: 'PRISM API — LGBTQ+ Friendly Profile Discovery Platform',
+    status: 'online',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      profiles: '/api/profiles',
+      featured: '/api/profiles/featured',
+    },
+  });
+});
+
 // Health Check
 app.get('/api/health', (_req, res) => {
   res.status(200).json({
