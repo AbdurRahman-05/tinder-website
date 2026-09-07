@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci
+RUN npm install
 
 COPY . .
 
@@ -20,10 +20,7 @@ ENV NODE_ENV=production
 
 COPY package*.json ./
 COPY prisma ./prisma/
-
-RUN npm ci --only=production
-RUN npx prisma generate
-
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 5000
