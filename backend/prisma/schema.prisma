@@ -1,0 +1,199 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  HIDDEN
+}
+
+enum ProfileStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportReason {
+  SPAM
+  FAKE_PROFILE
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  IMPERSONATION
+  SCAM
+  OFFENSIVE_CONTENT
+  OTHER
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  role         UserRole    @default(USER)
+  status       UserStatus  @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  profile        Profile?
+  savedProfiles  SavedProfile[]
+  blockedProfiles Block[]
+  adminActions   AdminAction[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model Profile {
+  id               String            @id @default(cuid())
+  userId           String?           @unique
+  user             User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name             String
+  dateOfBirth      DateTime
+  age              Int
+  gender           String
+  customGender     String?
+  pronouns         String?
+  lookingFor       String[]
+  bio              String
+  location         String?
+  
+  whatsapp         String?
+  whatsappVisible  Boolean           @default(false)
+  instagram        String?
+  instagramVisible Boolean           @default(false)
+  
+  visibility       ProfileVisibility @default(PUBLIC)
+  status           ProfileStatus     @default(ACTIVE)
+  isVerified       Boolean           @default(false)
+  isFeatured       Boolean           @default(false)
+  createdByAdmin   Boolean           @default(false)
+  
+  photos           ProfilePhoto[]
+  savedBy          SavedProfile[]
+  blockedBy        Block[]
+  reports          Report[]
+  
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+
+  @@index([name])
+  @@index([gender])
+  @@index([status])
+  @@index([visibility])
+  @@index([age])
+  @@index([isFeatured])
+  @@index([createdAt])
+}
+
+model ProfilePhoto {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  url       String
+  publicId  String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([profileId])
+}
+
+model SavedProfile {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, profileId])
+  @@index([userId])
+  @@index([profileId])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, profileId])
+  @@index([userId])
+  @@index([profileId])
+}
+
+model Report {
+  id               String       @id @default(cuid())
+  profileId        String
+  profile          Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  reporterUserId   String?
+  reporterIp       String?
+  reason           ReportReason
+  description      String?
+  status           ReportStatus @default(PENDING)
+  resolutionNotes  String?
+  resolvedByAdminId String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([profileId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AdminAction {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  timestamp  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([timestamp])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  type      String   // "LOOKING_FOR" | "GENDER"
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([type])
+}
