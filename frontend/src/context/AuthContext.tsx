@@ -5,6 +5,7 @@ import { api } from '../api/client';
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
+  myProfiles: Profile[];
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -14,6 +15,7 @@ interface AuthContextType {
   register: (payload: { email: string; password: string; dateOfBirth: string; termsAccepted: boolean }) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
+  fetchMyProfiles: () => Promise<void>;
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
 }
 
@@ -22,6 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [myProfiles, setMyProfiles] = useState<Profile[]>([]);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('prism_access_token'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -35,15 +38,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data && data.user) {
         setUser(data.user);
         setProfile(data.profile || null);
+        setMyProfiles(data.profiles || (data.profile ? [data.profile] : []));
       }
     } catch {
       localStorage.removeItem('prism_access_token');
       localStorage.removeItem('prism_refresh_token');
       setUser(null);
       setProfile(null);
+      setMyProfiles([]);
       setToken(null);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchMyProfiles = async () => {
+    try {
+      const res = await api.get<Profile[]>('/profiles/my-profiles');
+      if (Array.isArray(res)) {
+        setMyProfiles(res);
+        if (res.length > 0 && !profile) {
+          setProfile(res[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch my profiles:', err);
     }
   };
 
@@ -59,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(data.accessToken);
       setUser(data.user);
       setProfile(data.profile || null);
+      setMyProfiles(data.profiles || (data.profile ? [data.profile] : []));
     }
   };
 
@@ -70,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(data.accessToken);
       setUser(data.user);
       setProfile(null);
+      setMyProfiles([]);
     }
   };
 
@@ -78,11 +99,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('prism_refresh_token');
     setUser(null);
     setProfile(null);
+    setMyProfiles([]);
     setToken(null);
   };
 
   const refreshProfile = async () => {
     await fetchMe();
+    await fetchMyProfiles();
   };
 
   const isAdmin = Boolean(user && ['SUPER_ADMIN', 'ADMIN'].includes(user.role));
@@ -94,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         profile,
+        myProfiles,
         token,
         isLoading,
         isAuthenticated,
@@ -103,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         refreshProfile,
+        fetchMyProfiles,
         setProfile,
       }}
     >

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { Profile } from '../types';
 import {
   Sparkles,
   Camera,
@@ -38,8 +39,13 @@ const LOOKING_FOR_OPTIONS = [
 ];
 
 export const EditProfilePage: React.FC = () => {
-  const { profile, refreshProfile } = useAuth();
+  const { profile: defaultProfile, refreshProfile } = useAuth();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  const profileIdParam = searchParams.get('id');
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
 
   const [name, setName] = useState('');
   const [gender, setGender] = useState('Non-binary');
@@ -62,25 +68,50 @@ export const EditProfilePage: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Load target profile
   useEffect(() => {
-    if (profile) {
-      setName(profile.name || '');
-      setGender(profile.gender || 'Non-binary');
-      setCustomGender(profile.customGender || '');
-      setPronouns(profile.pronouns || 'They/Them');
-      setLookingFor(profile.lookingFor || []);
-      setBio(profile.bio || '');
-      setLocation(profile.location || '');
-      setWhatsapp(profile.whatsapp || '');
-      setWhatsappVisible(Boolean(profile.whatsappVisible));
-      setInstagram(profile.instagram || '');
-      setInstagramVisible(Boolean(profile.instagramVisible));
-      setVisibility(profile.visibility || 'PUBLIC');
-      if (profile.photos?.[0]?.url) {
-        setPhotoPreview(profile.photos[0].url);
+    const loadProfile = async () => {
+      setLoadingProfile(true);
+      try {
+        if (profileIdParam) {
+          const fetched = await api.get<Profile>(`/profiles/${profileIdParam}`);
+          if (fetched) {
+            populateForm(fetched);
+            setActiveProfile(fetched);
+            return;
+          }
+        }
+        if (defaultProfile) {
+          populateForm(defaultProfile);
+          setActiveProfile(defaultProfile);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to load profile');
+      } finally {
+        setLoadingProfile(false);
       }
+    };
+
+    loadProfile();
+  }, [profileIdParam, defaultProfile]);
+
+  const populateForm = (p: Profile) => {
+    setName(p.name || '');
+    setGender(p.gender || 'Non-binary');
+    setCustomGender(p.customGender || '');
+    setPronouns(p.pronouns || 'They/Them');
+    setLookingFor(p.lookingFor || []);
+    setBio(p.bio || '');
+    setLocation(p.location || '');
+    setWhatsapp(p.whatsapp || '');
+    setWhatsappVisible(Boolean(p.whatsappVisible));
+    setInstagram(p.instagram || '');
+    setInstagramVisible(Boolean(p.instagramVisible));
+    setVisibility(p.visibility || 'PUBLIC');
+    if (p.photos?.[0]?.url) {
+      setPhotoPreview(p.photos[0].url);
     }
-  }, [profile]);
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -98,7 +129,8 @@ export const EditProfilePage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
+    const targetId = activeProfile?.id || defaultProfile?.id;
+    if (!targetId) return;
 
     setError(null);
     setSuccess(null);
@@ -106,7 +138,7 @@ export const EditProfilePage: React.FC = () => {
 
     try {
       // 1. Update text fields
-      await api.put(`/profiles/${profile.id}`, {
+      await api.put(`/profiles/${targetId}`, {
         name,
         gender,
         customGender: gender === 'Other' ? customGender : undefined,
@@ -125,6 +157,7 @@ export const EditProfilePage: React.FC = () => {
       if (photoFile) {
         const formData = new FormData();
         formData.append('photo', photoFile);
+        formData.append('profileId', targetId);
         await api.upload('/profiles/upload-photo', formData);
       }
 
@@ -138,13 +171,22 @@ export const EditProfilePage: React.FC = () => {
     }
   };
 
-  if (!profile) {
+  if (loadingProfile) {
+    return (
+      <div className="max-w-md mx-auto py-16 text-center space-y-4">
+        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-slate-400 text-xs">Loading profile...</p>
+      </div>
+    );
+  }
+
+  if (!activeProfile && !defaultProfile) {
     return (
       <div className="max-w-md mx-auto py-16 text-center space-y-4">
         <p className="text-slate-400 text-sm">No profile created yet.</p>
         <button
           onClick={() => navigate('/create-profile')}
-          className="px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-semibold"
+          className="px-5 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-semibold"
         >
           Create Profile
         </button>

@@ -14,6 +14,7 @@ export const getProfiles = async (req: Request, res: Response, next: NextFunctio
       maxAge,
       location,
       isVerified,
+      includeMine,
       sort = 'newest',
       page = 1,
       limit = 20,
@@ -54,8 +55,9 @@ export const getProfiles = async (req: Request, res: Response, next: NextFunctio
         ...(excludeUserIds.length > 0 ? [{ userId: { notIn: excludeUserIds } }] : []),
       ];
 
-      // Exclude self from discovery
-      if (req.user.id) {
+      // Exclude self from discovery unless includeMine is true or user is admin
+      const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'].includes(req.user.role);
+      if (req.user.id && includeMine !== 'true' && !isAdmin) {
         where.userId = { not: req.user.id };
       }
     }
@@ -296,15 +298,6 @@ export const createProfile = async (req: Request, res: Response, next: NextFunct
       return sendError(res, 'Unauthorized', 401);
     }
 
-    // Check if user already has a profile
-    const existing = await prisma.profile.findUnique({
-      where: { userId: req.user.id },
-    });
-
-    if (existing && existing.status !== 'DELETED') {
-      return sendError(res, 'You already have a profile. Please edit your existing profile.', 400);
-    }
-
     const {
       name,
       dateOfBirth,
@@ -439,6 +432,66 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+export const getMyProfiles = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    const profiles = await prisma.profile.findMany({
+      where: {
+        userId: req.user.id,
+        status: { not: 'DELETED' },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        photos: {
+          orderBy: { isPrimary: 'desc' },
+        },
+      },
+    });
+
+    return sendSuccess(res, profiles);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteProfile = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    const id = req.params.id as string;
+    const profile = await prisma.profile.findUnique({ where: { id } });
+
+    if (!profile || profile.status === 'DELETED') {
+      return sendError(res, 'Profile not found', 404);
+    }
+
+    const isOwner = profile.userId === req.user.id;
+    const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(req.user.role);
+
+    if (!isOwner && !isAdmin) {
+      return sendError(res, 'You do not have permission to delete this profile', 403);
+    }
+
+    const updated = await prisma.profile.update({
+      where: { id },
+      data: {
+        status: 'DELETED',
+        visibility: 'HIDDEN',
+        deletedAt: new Date(),
+      },
+    });
+
+    return sendSuccess(res, updated, 'Profile deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const uploadProfilePhoto = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
@@ -449,9 +502,27 @@ export const uploadProfilePhoto = async (req: Request, res: Response, next: Next
       return sendError(res, 'No image file uploaded', 400);
     }
 
-    const profile = await prisma.profile.findUnique({
-      where: { userId: req.user.id },
-    });
+    const profileId = (req.body.profileId || req.query.profileId) as string | undefined;
+
+    let profile;
+    if (profileId) {
+      profile = await prisma.profile.findUnique({
+        where: { id: profileId },
+      });
+      if (!profile || profile.status === 'DELETED') {
+        return sendError(res, 'Profile not found', 404);
+      }
+      const isOwner = profile.userId === req.user.id;
+      const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(req.user.role);
+      if (!isOwner && !isAdmin) {
+        return sendError(res, 'You do not have permission to upload photos for this profile', 403);
+      }
+    } else {
+      profile = await prisma.profile.findFirst({
+        where: { userId: req.user.id, status: { not: 'DELETED' } },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
 
     if (!profile) {
       return sendError(res, 'You need to create a profile first', 400);

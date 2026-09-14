@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { Profile, ProfilesResponse } from '../types';
 import { ProfileCard } from '../components/ProfileCard';
@@ -15,6 +15,7 @@ import {
   Filter,
   X,
   Sparkles,
+  PlusCircle,
 } from 'lucide-react';
 
 const GENDER_OPTIONS = [
@@ -303,17 +304,27 @@ export const DiscoverPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Mobile Filter Button */}
-        <button
-          onClick={() => setMobileFilterOpen(true)}
-          className="lg:hidden flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-sm font-medium"
-        >
-          <Filter className="w-4 h-4 text-purple-400" />
-          <span>Filters</span>
-          {(selectedGender !== 'All' || selectedLookingFor.length > 0 || isVerifiedOnly) && (
-            <span className="w-2 h-2 rounded-full bg-purple-500" />
-          )}
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            to={isAuthenticated ? "/create-profile" : "/register"}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs sm:text-sm font-semibold shadow-md shadow-purple-600/20 transition-all hover:scale-[1.02]"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>+ Add Profile</span>
+          </Link>
+
+          {/* Mobile Filter Button */}
+          <button
+            onClick={() => setMobileFilterOpen(true)}
+            className="lg:hidden flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-sm font-medium"
+          >
+            <Filter className="w-4 h-4 text-purple-400" />
+            <span>Filters</span>
+            {(selectedGender !== 'All' || selectedLookingFor.length > 0 || isVerifiedOnly) && (
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Main Grid: Sidebar + Results */}

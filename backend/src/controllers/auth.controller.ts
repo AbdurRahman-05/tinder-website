@@ -66,10 +66,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   try {
     const { email, password } = req.body;
 
-    const user = await prisma.user.findUnique({
+    const user = await (prisma.user.findUnique as any)({
       where: { email },
       include: {
-        profile: {
+        profiles: {
+          where: { status: { not: 'DELETED' } },
           select: {
             id: true,
             name: true,
@@ -84,6 +85,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
               take: 1,
             },
           },
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
@@ -123,6 +125,9 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       role: user.role,
     });
 
+    const userProfiles = (user as any).profiles || [];
+    const primaryProfile = userProfiles[0] || (user as any).profile || null;
+
     return sendSuccess(
       res,
       {
@@ -133,8 +138,9 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
           status: user.status,
           createdAt: user.createdAt,
         },
-        profile: user.profile,
-        hasProfile: Boolean(user.profile),
+        profile: primaryProfile,
+        profiles: userProfiles,
+        hasProfile: userProfiles.length > 0 || Boolean(primaryProfile),
         accessToken,
         refreshToken,
       },
@@ -195,15 +201,17 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
       return sendError(res, 'Not authenticated', 401);
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await (prisma.user.findUnique as any)({
       where: { id: req.user.id },
       include: {
-        profile: {
+        profiles: {
+          where: { status: { not: 'DELETED' } },
           include: {
             photos: {
               orderBy: { createdAt: 'desc' },
             },
           },
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
@@ -211,6 +219,9 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
     if (!user) {
       return sendError(res, 'User not found', 404);
     }
+
+    const userProfiles = (user as any).profiles || [];
+    const primaryProfile = userProfiles[0] || (user as any).profile || null;
 
     return sendSuccess(res, {
       user: {
@@ -220,8 +231,9 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
         status: user.status,
         createdAt: user.createdAt,
       },
-      profile: user.profile,
-      hasProfile: Boolean(user.profile),
+      profile: primaryProfile,
+      profiles: userProfiles,
+      hasProfile: userProfiles.length > 0 || Boolean(primaryProfile),
     });
   } catch (error) {
     next(error);

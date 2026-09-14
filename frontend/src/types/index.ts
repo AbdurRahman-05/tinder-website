@@ -26,6 +26,7 @@ export interface User {
   createdAt: string;
   lastLoginAt?: string;
   profile?: ProfileSummary;
+  profiles?: ProfileSummary[];
 }
 
 export interface ProfilePhoto {

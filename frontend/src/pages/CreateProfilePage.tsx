@@ -118,9 +118,10 @@ export const CreateProfilePage: React.FC = () => {
       });
 
       // 2. If a local file was chosen, upload it
-      if (photoFile) {
+      if (photoFile && res?.id) {
         const formData = new FormData();
         formData.append('photo', photoFile);
+        formData.append('profileId', res.id);
         await api.upload('/profiles/upload-photo', formData);
       }
 

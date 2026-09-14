@@ -102,15 +102,13 @@ export const Navbar: React.FC = () => {
           <div className="hidden md:flex items-center space-x-3">
             {isAuthenticated ? (
               <div className="flex items-center space-x-3">
-                {!profile && (
-                  <Link
-                    to="/create-profile"
-                    className="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-600/20 transition-all hover:scale-[1.02]"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Create Profile</span>
-                  </Link>
-                )}
+                <Link
+                  to="/create-profile"
+                  className="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-600/20 transition-all hover:scale-[1.02]"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ Add Profile</span>
+                </Link>
 
                 <Link
                   to="/dashboard"
@@ -191,6 +189,14 @@ export const Navbar: React.FC = () => {
 
             {isAuthenticated && (
               <>
+                <Link
+                  to="/create-profile"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg text-base font-medium text-purple-300 hover:bg-slate-800 flex items-center space-x-3"
+                >
+                  <PlusCircle className="w-5 h-5 text-purple-400" />
+                  <span>+ Add Profile</span>
+                </Link>
                 <Link
                   to="/saved"
                   onClick={() => setMobileMenuOpen(false)}

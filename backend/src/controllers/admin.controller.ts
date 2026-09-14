@@ -506,16 +506,22 @@ export const getAdminUsers = async (req: Request, res: Response, next: NextFunct
           status: true,
           lastLoginAt: true,
           createdAt: true,
-          profile: {
+          profiles: {
             select: { id: true, name: true, isVerified: true, status: true },
           },
-        },
+        } as any,
       }),
       prisma.user.count({ where }),
     ]);
 
+    const sanitizedUsers = users.map((u: any) => ({
+      ...u,
+      profile: u.profiles?.[0] || u.profile || null,
+      profiles: u.profiles || [],
+    }));
+
     return sendSuccess(res, {
-      users,
+      users: sanitizedUsers,
       total,
       page: pageNum,
       limit: limitNum,

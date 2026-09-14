@@ -63,6 +63,7 @@ export const profileSearchQuerySchema = z.object({
   maxAge: z.coerce.number().min(18).max(100).optional(),
   location: z.string().optional(),
   isVerified: z.enum(['true', 'false']).optional(),
+  includeMine: z.enum(['true', 'false']).optional(),
   sort: z.enum(['newest', 'updated', 'alphabetical']).default('newest'),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(60).default(20),

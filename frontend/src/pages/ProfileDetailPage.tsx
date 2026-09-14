@@ -18,12 +18,14 @@ import {
   Share2,
   Lock,
   Sparkles,
+  Shield,
+  Trash2,
 } from 'lucide-react';
 
 export const ProfileDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isModerator, isAdmin } = useAuth();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
@@ -34,6 +36,52 @@ export const ProfileDetailPage: React.FC = () => {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [adminMessage, setAdminMessage] = useState<string | null>(null);
+
+  const handleAdminBlock = async () => {
+    if (!profile) return;
+    try {
+      const res = await api.post(`/admin/profiles/${profile.id}/block`);
+      setAdminMessage(res.message || 'Block status updated');
+      setProfile((prev) => (prev ? { ...prev, status: prev.status === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED' } : null));
+    } catch (err: any) {
+      alert(err.message || 'Action failed');
+    }
+  };
+
+  const handleAdminVerify = async () => {
+    if (!profile) return;
+    try {
+      const res = await api.post(`/admin/profiles/${profile.id}/verify`);
+      setAdminMessage(res.message || 'Verification updated');
+      setProfile((prev) => (prev ? { ...prev, isVerified: !prev.isVerified } : null));
+    } catch (err: any) {
+      alert(err.message || 'Action failed');
+    }
+  };
+
+  const handleAdminFeature = async () => {
+    if (!profile) return;
+    try {
+      const res = await api.post(`/admin/profiles/${profile.id}/feature`);
+      setAdminMessage(res.message || 'Feature status updated');
+      setProfile((prev) => (prev ? { ...prev, isFeatured: !prev.isFeatured } : null));
+    } catch (err: any) {
+      alert(err.message || 'Action failed');
+    }
+  };
+
+  const handleAdminDelete = async () => {
+    if (!profile) return;
+    if (!confirm('Are you sure you want to delete this profile as Admin?')) return;
+    try {
+      await api.delete(`/admin/profiles/${profile.id}`);
+      alert('Profile deleted by Admin');
+      navigate('/discover');
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete profile');
+    }
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -146,7 +194,7 @@ export const ProfileDetailPage: React.FC = () => {
 
           {isOwner && (
             <Link
-              to="/edit-profile"
+              to={`/edit-profile?id=${profile.id}`}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors"
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -155,6 +203,80 @@ export const ProfileDetailPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Admin Moderation Bar */}
+      {(isModerator || isAdmin) && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <Shield className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <span className="text-xs font-bold text-amber-300 uppercase tracking-wider block">
+                Admin Moderation Controls
+              </span>
+              <span className="text-[11px] text-amber-400/80">
+                Status: <strong className="uppercase">{profile.status}</strong> • Verified: {profile.isVerified ? 'Yes' : 'No'} • Featured: {profile.isFeatured ? 'Yes' : 'No'}
+              </span>
+              {adminMessage && (
+                <span className="text-[11px] text-emerald-400 block font-medium mt-0.5">
+                  ✓ {adminMessage}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleAdminVerify}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                profile.isVerified
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
+              }`}
+            >
+              {profile.isVerified ? '✓ Verified' : 'Verify'}
+            </button>
+
+            <button
+              onClick={handleAdminFeature}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                profile.isFeatured
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                  : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
+              }`}
+            >
+              {profile.isFeatured ? '★ Featured' : 'Feature'}
+            </button>
+
+            <button
+              onClick={handleAdminBlock}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                profile.status === 'BLOCKED'
+                  ? 'bg-rose-500/30 text-rose-200 border-rose-500/50'
+                  : 'bg-slate-900 text-rose-300 border-rose-500/30 hover:bg-rose-500/10'
+              }`}
+            >
+              {profile.status === 'BLOCKED' ? 'Unblock Profile' : 'Block Profile'}
+            </button>
+
+            {isAdmin && (
+              <button
+                onClick={handleAdminDelete}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600/20 text-rose-400 border border-rose-500/40 hover:bg-rose-600 hover:text-white transition-colors flex items-center gap-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+            )}
+
+            <Link
+              to="/admin/profiles"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
+            >
+              Admin Portal →
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
         {/* Left Column: Photo Gallery */}
