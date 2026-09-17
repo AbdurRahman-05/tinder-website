@@ -91,6 +91,8 @@ export interface AdminDashboardData {
     pendingReports: number;
     newUsersToday: number;
     newProfilesToday: number;
+    totalEvents?: number;
+    activeEvents?: number;
   };
   charts: {
     genderDistribution: { name: string; count: number }[];

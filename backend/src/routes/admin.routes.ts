@@ -10,6 +10,14 @@ import {
   batchBlockProfiles,
   batchUnblockProfiles,
   batchDeleteProfiles,
+  getAdminEvents,
+  createAdminEvent,
+  toggleBlockEvent,
+  toggleFeatureEvent,
+  deleteEventByAdmin,
+  batchBlockEvents,
+  batchUnblockEvents,
+  batchDeleteEvents,
   getAdminReports,
   updateReportStatus,
   getAdminUsers,
@@ -39,6 +47,16 @@ router.post('/profiles/:id/verify', requireModerator, toggleVerifyProfile);
 router.post('/profiles/:id/feature', requireAdmin, toggleFeatureProfile);
 router.post('/profiles/:id/block', requireModerator, toggleBlockProfile);
 router.delete('/profiles/:id', requireAdmin, deleteProfileByAdmin);
+
+// Event Moderation & Management
+router.get('/events', requireModerator, getAdminEvents);
+router.post('/events', requireAdmin, createAdminEvent);
+router.post('/events/batch-block', requireModerator, batchBlockEvents);
+router.post('/events/batch-unblock', requireModerator, batchUnblockEvents);
+router.post('/events/batch-delete', requireAdmin, batchDeleteEvents);
+router.post('/events/:id/block', requireModerator, toggleBlockEvent);
+router.post('/events/:id/feature', requireAdmin, toggleFeatureEvent);
+router.delete('/events/:id', requireAdmin, deleteEventByAdmin);
 
 // Reports Triage
 router.get('/reports', requireModerator, getAdminReports);

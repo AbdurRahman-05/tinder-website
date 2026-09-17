@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Shield,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 
 export const AdminLayout: React.FC = () => {
@@ -50,6 +51,7 @@ export const AdminLayout: React.FC = () => {
   const navItems = [
     { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { label: 'Profiles', path: '/admin/profiles', icon: Users },
+    { label: 'Events', path: '/admin/events', icon: Calendar },
     { label: 'Add Profile', path: '/admin/profiles/create', icon: PlusCircle },
     { label: 'Reports Triage', path: '/admin/reports', icon: ShieldAlert },
     { label: 'User Directory', path: '/admin/users', icon: UserCheck },

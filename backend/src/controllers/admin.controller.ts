@@ -21,6 +21,8 @@ export const getDashboardStats = async (_req: Request, res: Response, next: Next
       allProfilesForLookingFor,
       ageData,
       reportStats,
+      totalEvents,
+      activeEvents,
     ] = await Promise.all([
       prisma.user.count({ where: { status: { not: 'DELETED' } } }),
       prisma.profile.count({ where: { status: { not: 'DELETED' } } }),
@@ -47,6 +49,8 @@ export const getDashboardStats = async (_req: Request, res: Response, next: Next
         by: ['status'],
         _count: { id: true },
       }),
+      prisma.event.count(),
+      prisma.event.count({ where: { status: 'ACTIVE' } }),
     ]);
 
     // Aggregate Looking For breakdown
@@ -85,6 +89,8 @@ export const getDashboardStats = async (_req: Request, res: Response, next: Next
         pendingReports,
         newUsersToday,
         newProfilesToday,
+        totalEvents,
+        activeEvents,
       },
       charts: {
         genderDistribution,
@@ -758,6 +764,334 @@ export const getAuditLogs = async (req: Request, res: Response, next: NextFuncti
       limit: limitNum,
       totalPages: Math.ceil(total / limitNum),
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
+// ADMIN EVENT MANAGEMENT & MODERATION
+// ==========================================
+
+export const getAdminEvents = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { q, category, status, page = 1, limit = 15 } = req.query;
+
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {};
+
+    if (q && typeof q === 'string' && q.trim()) {
+      where.OR = [
+        { title: { contains: q.trim(), mode: 'insensitive' } },
+        { location: { contains: q.trim(), mode: 'insensitive' } },
+        { description: { contains: q.trim(), mode: 'insensitive' } },
+        { creatorName: { contains: q.trim(), mode: 'insensitive' } },
+      ];
+    }
+
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+
+    if (category && category !== 'ALL') {
+      where.category = category as string;
+    }
+
+    const [
+      events,
+      total,
+      totalEvents,
+      activeEvents,
+      blockedEvents,
+      categoryGroups,
+    ] = await Promise.all([
+      prisma.event.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: [{ isFeatured: 'desc' }, { date: 'asc' }],
+      }),
+      prisma.event.count({ where }),
+      prisma.event.count(),
+      prisma.event.count({ where: { status: 'ACTIVE' } }),
+      prisma.event.count({ where: { status: 'CANCELLED' } }),
+      prisma.event.groupBy({
+        by: ['category'],
+        _count: { id: true },
+      }),
+    ]);
+
+    const categoryCounts: Record<string, number> = {};
+    categoryGroups.forEach((cg) => {
+      categoryCounts[cg.category] = cg._count.id;
+    });
+
+    return sendSuccess(res, {
+      events,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+      stats: {
+        totalEvents,
+        activeEvents,
+        blockedEvents,
+        categoryCounts,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createAdminEvent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const {
+      title,
+      description,
+      category,
+      date,
+      time,
+      location,
+      isVirtual = false,
+      virtualLink,
+      imageUrl,
+      whatsapp,
+      instagram,
+      googleFormUrl,
+      websiteUrl,
+      creatorName,
+      isFeatured = false,
+    } = req.body;
+
+    if (!title || !description || !date || !location) {
+      return sendError(res, 'Title, description, date, and location are required.', 400);
+    }
+
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) {
+      return sendError(res, 'Please provide a valid event date.', 400);
+    }
+
+    const event = await prisma.event.create({
+      data: {
+        title: title.trim(),
+        description: description.trim(),
+        category: category?.trim() || 'Party',
+        date: parsedDate,
+        time: time?.trim() || null,
+        location: location.trim(),
+        isVirtual: Boolean(isVirtual),
+        virtualLink: virtualLink?.trim() || null,
+        imageUrl: imageUrl?.trim() || null,
+        whatsapp: whatsapp ? whatsapp.trim().replace(/[^0-9+]/g, '') : null,
+        instagram: instagram ? instagram.trim().replace('@', '') : null,
+        googleFormUrl: googleFormUrl?.trim() || null,
+        websiteUrl: websiteUrl?.trim() || null,
+        creatorName: creatorName?.trim() || 'PRISM Official',
+        creatorId: req.user ? req.user.id : null,
+        isFeatured: Boolean(isFeatured),
+        status: 'ACTIVE',
+      },
+    });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: 'CREATE_EVENT',
+          targetType: 'EVENT',
+          targetId: event.id,
+          metadata: { title: event.title },
+        },
+      });
+    }
+
+    return sendSuccess(res, event, 'Event created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const toggleBlockEvent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) return sendError(res, 'Event not found', 404);
+
+    const newStatus = event.status === 'CANCELLED' ? 'ACTIVE' : 'CANCELLED';
+
+    const updated = await prisma.event.update({
+      where: { id },
+      data: { status: newStatus },
+    });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: newStatus === 'CANCELLED' ? 'BLOCK_EVENT' : 'UNBLOCK_EVENT',
+          targetType: 'EVENT',
+          targetId: event.id,
+        },
+      });
+    }
+
+    return sendSuccess(
+      res,
+      updated,
+      newStatus === 'CANCELLED' ? 'Event blocked and hidden from public discovery' : 'Event reactivated and published'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const toggleFeatureEvent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) return sendError(res, 'Event not found', 404);
+
+    const updated = await prisma.event.update({
+      where: { id },
+      data: { isFeatured: !event.isFeatured },
+    });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: updated.isFeatured ? 'FEATURE_EVENT' : 'UNFEATURE_EVENT',
+          targetType: 'EVENT',
+          targetId: event.id,
+        },
+      });
+    }
+
+    return sendSuccess(
+      res,
+      updated,
+      updated.isFeatured ? 'Event marked as featured' : 'Event removed from featured'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteEventByAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) return sendError(res, 'Event not found', 404);
+
+    await prisma.event.delete({ where: { id } });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: 'DELETE_EVENT',
+          targetType: 'EVENT',
+          targetId: id,
+          metadata: { title: event.title },
+        },
+      });
+    }
+
+    return sendSuccess(res, null, 'Event permanently deleted from the site and database');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const batchBlockEvents = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return sendError(res, 'Please provide an array of event IDs to block', 400);
+    }
+
+    const result = await prisma.event.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'CANCELLED' },
+    });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: 'BATCH_BLOCK_EVENTS',
+          targetType: 'EVENT',
+          targetId: ids.join(','),
+          metadata: { count: result.count, ids },
+        },
+      });
+    }
+
+    return sendSuccess(res, { count: result.count }, `Successfully blocked ${result.count} event(s)`);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const batchUnblockEvents = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return sendError(res, 'Please provide an array of event IDs to unblock', 400);
+    }
+
+    const result = await prisma.event.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'ACTIVE' },
+    });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: 'BATCH_UNBLOCK_EVENTS',
+          targetType: 'EVENT',
+          targetId: ids.join(','),
+          metadata: { count: result.count, ids },
+        },
+      });
+    }
+
+    return sendSuccess(res, { count: result.count }, `Successfully unblocked ${result.count} event(s)`);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const batchDeleteEvents = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return sendError(res, 'Please provide an array of event IDs to delete', 400);
+    }
+
+    const result = await prisma.event.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: 'BATCH_DELETE_EVENTS',
+          targetType: 'EVENT',
+          targetId: ids.join(','),
+          metadata: { count: result.count, ids },
+        },
+      });
+    }
+
+    return sendSuccess(res, { count: result.count }, `Successfully permanently deleted ${result.count} event(s)`);
   } catch (error) {
     next(error);
   }

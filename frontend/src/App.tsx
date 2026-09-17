@@ -24,6 +24,7 @@ import { AdminLayout } from './pages/admin/AdminLayout';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminProfilesPage } from './pages/admin/AdminProfilesPage';
+import { AdminEventsPage } from './pages/admin/AdminEventsPage';
 import { AdminCreateProfilePage } from './pages/admin/AdminCreateProfilePage';
 import { AdminReportsPage } from './pages/admin/AdminReportsPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
@@ -105,6 +106,7 @@ export const App: React.FC = () => {
             <Route index element={<AdminDashboardPage />} />
             <Route path="analytics" element={<AdminDashboardPage />} />
             <Route path="profiles" element={<AdminProfilesPage />} />
+            <Route path="events" element={<AdminEventsPage />} />
             <Route path="profiles/create" element={<AdminCreateProfilePage />} />
             <Route path="reports" element={<AdminReportsPage />} />
             <Route path="users" element={<AdminUsersPage />} />

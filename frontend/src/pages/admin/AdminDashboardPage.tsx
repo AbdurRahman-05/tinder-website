@@ -13,6 +13,8 @@ import {
   UserPlus,
   ArrowUpRight,
   PieChart,
+  Calendar,
+  Sparkles,
 } from 'lucide-react';
 
 export const AdminDashboardPage: React.FC = () => {
@@ -55,6 +57,8 @@ export const AdminDashboardPage: React.FC = () => {
     { title: 'Hidden Profiles', value: kpi.hiddenProfiles, icon: EyeOff, color: 'text-amber-400', bg: 'bg-amber-500/15', link: '/admin/profiles' },
     { title: 'Blocked Profiles', value: kpi.blockedProfiles, icon: ShieldBan, color: 'text-rose-400', bg: 'bg-rose-500/15', link: '/admin/profiles?status=BLOCKED' },
     { title: 'Pending Abuse Reports', value: kpi.pendingReports, icon: ShieldAlert, color: 'text-red-400', bg: 'bg-red-500/15', link: '/admin/reports' },
+    { title: 'Total Community Events', value: kpi.totalEvents ?? 0, icon: Calendar, color: 'text-amber-400', bg: 'bg-amber-500/15', link: '/admin/events' },
+    { title: 'Active Live Events', value: kpi.activeEvents ?? 0, icon: Sparkles, color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/15', link: '/admin/events?status=ACTIVE' },
     { title: 'New Users Today', value: kpi.newUsersToday, icon: UserPlus, color: 'text-cyan-400', bg: 'bg-cyan-500/15', link: '/admin/users' },
     { title: 'New Profiles Today', value: kpi.newProfilesToday, icon: TrendingUp, color: 'text-pink-400', bg: 'bg-pink-500/15', link: '/admin/profiles' },
   ];
