@@ -124,10 +124,10 @@ export const DashboardPage: React.FC = () => {
               </>
             ) : (
               <Link
-                to="/create-profile"
+                to="/add-account"
                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-semibold shadow-lg shadow-purple-600/25 transition-all"
               >
-                Create Public Profile
+                + Add First Account
               </Link>
             )}
           </div>
@@ -148,23 +148,23 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* My Profiles Grid Section */}
+      {/* My Added Accounts Section */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight font-['Outfit']">
-              My Created Profiles ({myProfiles.length})
+              My Added Accounts ({myProfiles.length})
             </h2>
             <p className="text-xs text-slate-400">
-              You can create and manage as many community profiles as you want.
+              You can add and manage as many accounts (N number of accounts) as you want on PRISM.
             </p>
           </div>
           <Link
-            to="/create-profile"
+            to="/add-account"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-semibold shadow-md shadow-purple-600/20 transition-all hover:scale-[1.02] shrink-0"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>+ Add New Profile</span>
+            <span>+ Add Another Account</span>
           </Link>
         </div>
 

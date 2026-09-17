@@ -24,9 +24,9 @@ router.get('/', optionalAuth, validateQuery(profileSearchQuerySchema), getProfil
 router.get('/featured', getFeaturedProfiles);
 router.get('/my-profiles', authenticate, getMyProfiles);
 router.get('/:id', optionalAuth, getProfileById);
-router.post('/', authenticate, validateBody(createProfileSchema), createProfile);
+router.post('/', optionalAuth, validateBody(createProfileSchema), createProfile);
 router.put('/:id', authenticate, validateBody(updateProfileSchema), updateProfile);
 router.delete('/:id', authenticate, deleteProfile);
-router.post('/upload-photo', authenticate, upload.single('photo'), uploadProfilePhoto);
+router.post('/upload-photo', optionalAuth, upload.single('photo'), uploadProfilePhoto);
 
 export default router;

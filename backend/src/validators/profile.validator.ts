@@ -39,16 +39,16 @@ export const createProfileSchema = z.object({
   location: z.string().max(100, 'Location is too long').optional(),
   whatsapp: z
     .string()
-    .regex(/^$|^\+?[1-9]\d{6,14}$/, 'Please enter a valid international phone number with country code (e.g. +14155552671)')
+    .regex(/^$|^\+?[\d\s\-()]{7,25}$/, 'Please enter a valid phone or WhatsApp number')
     .optional()
     .nullable(),
-  whatsappVisible: z.boolean().default(false),
+  whatsappVisible: z.boolean().default(true),
   instagram: z
     .string()
-    .regex(/^$|^[a-zA-Z0-9._]{1,30}$/, 'Invalid Instagram handle')
+    .regex(/^$|^@?[a-zA-Z0-9._]{1,30}$/, 'Invalid Instagram handle')
     .optional()
     .nullable(),
-  instagramVisible: z.boolean().default(false),
+  instagramVisible: z.boolean().default(true),
   visibility: z.enum(['PUBLIC', 'HIDDEN']).default('PUBLIC'),
   photoUrl: z.string().url().optional(),
 });

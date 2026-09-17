@@ -100,16 +100,17 @@ export const Navbar: React.FC = () => {
 
           {/* User Status / Action Buttons */}
           <div className="hidden md:flex items-center space-x-3">
+            {/* Direct Add Account CTA for all users */}
+            <Link
+              to="/add-account"
+              className="flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-purple-600 via-pink-600 to-rose-500 hover:from-purple-500 hover:to-rose-400 text-white shadow-lg shadow-purple-600/25 transition-all hover:scale-[1.02] border border-white/10"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>+ Add Account</span>
+            </Link>
+
             {isAuthenticated ? (
               <div className="flex items-center space-x-3">
-                <Link
-                  to="/create-profile"
-                  className="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-600/20 transition-all hover:scale-[1.02]"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>+ Add Profile</span>
-                </Link>
-
                 <Link
                   to="/dashboard"
                   className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-purple-500/40 text-slate-200 transition-all"
@@ -129,24 +130,18 @@ export const Navbar: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-2.5">
+              <div className="flex items-center space-x-2">
                 <Link
                   to="/discover"
-                  className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 transition-colors"
+                  className="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 transition-colors"
                 >
-                  Continue as Guest
+                  Explore
                 </Link>
                 <Link
                   to="/login"
                   className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
                 >
                   Log in
-                </Link>
-                <Link
-                  to="/register"
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-600/20 transition-all hover:scale-[1.02]"
-                >
-                  Create Account
                 </Link>
               </div>
             )}
@@ -187,16 +182,17 @@ export const Navbar: React.FC = () => {
               <span>Safety & Inclusivity</span>
             </Link>
 
+            <Link
+              to="/add-account"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2 rounded-lg text-base font-semibold text-white bg-gradient-to-r from-purple-600 via-pink-600 to-rose-500 flex items-center space-x-3 shadow-md shadow-purple-600/30"
+            >
+              <PlusCircle className="w-5 h-5 text-white" />
+              <span>+ Add Account</span>
+            </Link>
+
             {isAuthenticated && (
               <>
-                <Link
-                  to="/create-profile"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-3 py-2 rounded-lg text-base font-medium text-purple-300 hover:bg-slate-800 flex items-center space-x-3"
-                >
-                  <PlusCircle className="w-5 h-5 text-purple-400" />
-                  <span>+ Add Profile</span>
-                </Link>
                 <Link
                   to="/saved"
                   onClick={() => setMobileMenuOpen(false)}
@@ -241,7 +237,7 @@ export const Navbar: React.FC = () => {
                 <span>Log out</span>
               </button>
             ) : (
-              <>
+              <div className="grid grid-cols-2 gap-2">
                 <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
@@ -250,13 +246,13 @@ export const Navbar: React.FC = () => {
                   Log In
                 </Link>
                 <Link
-                  to="/register"
+                  to="/add-account"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold"
+                  className="w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-600 text-white"
                 >
-                  Create Account (18+)
+                  + Add Account
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import {
   Users,
@@ -10,43 +10,98 @@ import {
   Trash2,
   ExternalLink,
   PlusCircle,
-  AlertCircle,
+  MessageCircle,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  UserCheck,
+  EyeOff,
+  Filter,
+  Tag,
 } from 'lucide-react';
 
+interface AdminStats {
+  totalUsers: number;
+  totalProfiles: number;
+  activeProfiles: number;
+  blockedProfiles: number;
+  deletedProfiles: number;
+  lookingForCounts: Record<string, number>;
+  genderCounts: Record<string, number>;
+}
+
+const CATEGORY_LIST = [
+  'All',
+  'Friendship',
+  'Dating',
+  'Relationship',
+  'Community',
+  'Networking',
+  'Chatting',
+];
+
+const GENDER_LIST = [
+  'All',
+  'Woman',
+  'Man',
+  'Non-binary',
+  'Trans woman',
+  'Trans man',
+  'Genderqueer',
+  'Genderfluid',
+  'Agender',
+  'Other',
+];
+
 export const AdminProfilesPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+
   const [profiles, setProfiles] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [stats, setStats] = useState<AdminStats | null>(null);
+
+  // Filters initialized from URL parameters if present
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL');
+  const [categoryFilter, setCategoryFilter] = useState(searchParams.get('lookingFor') || 'All');
+  const [genderFilter, setGenderFilter] = useState(searchParams.get('gender') || 'All');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  const fetchProfiles = async () => {
+  const fetchProfiles = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
       if (statusFilter !== 'ALL') params.set('status', statusFilter);
+      if (categoryFilter !== 'All') params.set('lookingFor', categoryFilter);
+      if (genderFilter !== 'All') params.set('gender', genderFilter);
       params.set('page', page.toString());
-      params.set('limit', '20');
+      params.set('limit', '15');
 
       const data = await api.get(`/admin/profiles?${params.toString()}`);
       if (data) {
         setProfiles(data.profiles || []);
         setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+        if (data.stats) {
+          setStats(data.stats);
+        }
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('Failed to load admin profiles:', err);
+      setActionMessage(err.message || 'Failed to load profiles');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, statusFilter, categoryFilter, genderFilter, searchQuery]);
 
   useEffect(() => {
     fetchProfiles();
-  }, [page, statusFilter]);
+  }, [fetchProfiles]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,10 +109,37 @@ export const AdminProfilesPage: React.FC = () => {
     fetchProfiles();
   };
 
+  const handleToggleBlock = async (id: string, currentStatus: string) => {
+    const actionName = currentStatus === 'BLOCKED' ? 'Unblock' : 'Block';
+    if (!confirm(`Are you sure you want to ${actionName.toLowerCase()} this profile?`)) return;
+    try {
+      const res = await api.post(`/admin/profiles/${id}/block`);
+      setActionMessage(res.message || `Profile ${actionName.toLowerCase()}ed successfully`);
+      fetchProfiles();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update block status');
+    }
+  };
+
+  const handleDeleteProfile = async (id: string, profileName: string) => {
+    const confirmDelete = confirm(
+      `Delete profile "${profileName}"?\n\nClick OK to soft-delete (hide from public directory).\nCancel to keep it.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await api.delete(`/admin/profiles/${id}`);
+      setActionMessage(`Profile "${profileName}" deleted successfully`);
+      fetchProfiles();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete profile');
+    }
+  };
+
   const handleToggleVerify = async (id: string) => {
     try {
       const res = await api.post(`/admin/profiles/${id}/verify`);
-      setActionMessage(res.message || 'Verification updated');
+      setActionMessage(res.message || 'Verification status updated');
       fetchProfiles();
     } catch (err: any) {
       alert(err.message || 'Action failed');
@@ -74,262 +156,547 @@ export const AdminProfilesPage: React.FC = () => {
     }
   };
 
-  const handleToggleBlock = async (id: string) => {
-    if (!confirm('Are you sure you want to change the block status of this profile?')) return;
-    try {
-      const res = await api.post(`/admin/profiles/${id}/block`);
-      setActionMessage(res.message || 'Block status changed');
-      fetchProfiles();
-    } catch (err: any) {
-      alert(err.message || 'Action failed');
-    }
-  };
-
-  const handleDeleteProfile = async (id: string) => {
-    if (!confirm('Permanently soft-delete this profile? This hides the profile from discovery.')) return;
-    try {
-      await api.delete(`/admin/profiles/${id}`);
-      setActionMessage('Profile soft deleted');
-      fetchProfiles();
-    } catch (err: any) {
-      alert(err.message || 'Action failed');
-    }
+  const resetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setCategoryFilter('All');
+    setGenderFilter('All');
+    setPage(1);
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
+      {/* 1. Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white font-['Outfit']">Profile Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-['Outfit']">
+            Admin Profile Management
+          </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Search, moderate, verify, feature, or block community profiles.
+            View all profiles, filter by category counts, manage block status, and delete profiles.
           </p>
         </div>
 
-        <Link
-          to="/admin/profiles/create"
-          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-2 shadow-md shadow-purple-600/20"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Create Admin Profile</span>
-        </Link>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => fetchProfiles()}
+            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-purple-500/40 transition-colors"
+            title="Refresh list"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-purple-400' : ''}`} />
+          </button>
+          <Link
+            to="/admin/profiles/create"
+            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-2 shadow-md shadow-purple-600/20 transition-all"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Create Admin Profile</span>
+          </Link>
+        </div>
       </div>
 
+      {/* Action Notification Message */}
       {actionMessage && (
-        <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs flex items-center justify-between">
-          <span>{actionMessage}</span>
-          <button onClick={() => setActionMessage(null)} className="text-slate-400 hover:text-white">
+        <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs flex items-center justify-between shadow-lg">
+          <span className="font-medium">{actionMessage}</span>
+          <button
+            onClick={() => setActionMessage(null)}
+            className="text-slate-400 hover:text-white px-2 py-0.5 rounded"
+          >
             ✕
           </button>
         </div>
       )}
 
-      {/* Filters Bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <form onSubmit={handleSearchSubmit} className="relative flex-grow">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by profile name or email..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-purple-500"
-          />
-        </form>
+      {/* 2. Total User Count & Profiles KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        {/* Total Users */}
+        <div className="p-4 rounded-2xl glass-card border border-purple-500/30 bg-purple-950/20">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-purple-300">Total Users</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-white tracking-tight">
+            {stats?.totalUsers ?? '...'}
+          </div>
+          <span className="text-[10px] text-purple-400/80 mt-0.5 block font-medium">
+            Registered accounts
+          </span>
+        </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-          }}
-          className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-purple-500 cursor-pointer"
-        >
-          <option value="ALL">All Statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="BLOCKED">Blocked</option>
-          <option value="DELETED">Deleted</option>
-        </select>
+        {/* Total Profiles */}
+        <div className="p-4 rounded-2xl glass-card border border-blue-500/30 bg-blue-950/20">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-blue-300">Total Profiles</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center">
+              <UserCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-white tracking-tight">
+            {stats?.totalProfiles ?? total}
+          </div>
+          <span className="text-[10px] text-blue-400/80 mt-0.5 block font-medium">
+            Directory listings
+          </span>
+        </div>
+
+        {/* Active Profiles */}
+        <div className="p-4 rounded-2xl glass-card border border-emerald-500/30 bg-emerald-950/20">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-emerald-300">Active Profiles</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-white tracking-tight">
+            {stats?.activeProfiles ?? 0}
+          </div>
+          <span className="text-[10px] text-emerald-400/80 mt-0.5 block font-medium">
+            Public in discovery
+          </span>
+        </div>
+
+        {/* Blocked Profiles */}
+        <div className="p-4 rounded-2xl glass-card border border-rose-500/30 bg-rose-950/20">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-rose-300">Blocked Profiles</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center">
+              <ShieldBan className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-white tracking-tight">
+            {stats?.blockedProfiles ?? 0}
+          </div>
+          <span className="text-[10px] text-rose-400/80 mt-0.5 block font-medium">
+            Hidden / suspended
+          </span>
+        </div>
+
+        {/* Deleted Profiles */}
+        <div className="p-4 rounded-2xl glass-card border border-slate-700 bg-slate-900/40 col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-400">Deleted Profiles</span>
+            <div className="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center">
+              <Trash2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-white tracking-tight">
+            {stats?.deletedProfiles ?? 0}
+          </div>
+          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">
+            Archived records
+          </span>
+        </div>
       </div>
 
-      {/* Profiles Data Table */}
-      <div className="rounded-2xl glass-card border border-slate-800 overflow-hidden shadow-xl">
+      {/* 3. Category Count Filters Section */}
+      <div className="p-5 rounded-2xl glass-card border border-slate-800 space-y-4 shadow-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-purple-300 uppercase tracking-wider">
+            <Tag className="w-4 h-4" />
+            <span>Filter by Category & Counts</span>
+          </div>
+          {(statusFilter !== 'ALL' || categoryFilter !== 'All' || genderFilter !== 'All' || searchQuery) && (
+            <button
+              onClick={resetFilters}
+              className="text-xs text-purple-400 hover:text-pink-300 underline underline-offset-2"
+            >
+              Reset All Filters
+            </button>
+          )}
+        </div>
+
+        {/* Category Pills (Looking For) with Live Counts */}
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-semibold text-slate-400 block">
+            Looking For / Intent Category:
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {CATEGORY_LIST.map((cat) => {
+              const count =
+                cat === 'All'
+                  ? stats?.totalProfiles ?? total
+                  : stats?.lookingForCounts?.[cat] || 0;
+              const isSelected = categoryFilter === cat;
+
+              return (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setCategoryFilter(cat);
+                    setPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 border-transparent text-white shadow-md shadow-purple-600/25'
+                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-purple-500/40 hover:text-white'
+                  }`}
+                >
+                  <span>{cat}</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      isSelected
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-800 text-purple-300 border border-slate-700'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Search Bar & Dropdown Selectors */}
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2 border-t border-slate-800/80">
+          {/* Search Query */}
+          <form onSubmit={handleSearchSubmit} className="sm:col-span-6 relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by profile name, email, WhatsApp, or Instagram..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-purple-500"
+            />
+          </form>
+
+          {/* Gender Filter with Counts */}
+          <div className="sm:col-span-3">
+            <select
+              value={genderFilter}
+              onChange={(e) => {
+                setGenderFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-purple-500 cursor-pointer"
+            >
+              <option value="All">All Genders</option>
+              {GENDER_LIST.filter((g) => g !== 'All').map((g) => (
+                <option key={g} value={g}>
+                  {g} ({stats?.genderCounts?.[g] || 0})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter with Counts */}
+          <div className="sm:col-span-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-purple-500 cursor-pointer"
+            >
+              <option value="ALL">All Statuses ({stats?.totalProfiles ?? total})</option>
+              <option value="ACTIVE">Active ({stats?.activeProfiles ?? 0})</option>
+              <option value="BLOCKED">Blocked ({stats?.blockedProfiles ?? 0})</option>
+              <option value="DELETED">Deleted ({stats?.deletedProfiles ?? 0})</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Profiles Database Table */}
+      <div className="rounded-2xl glass-card border border-slate-800 overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+          <span className="text-xs font-semibold text-slate-300">
+            Showing {profiles.length} of {total} profiles
+          </span>
+          <span className="text-xs text-slate-400">
+            Page {page} of {totalPages}
+          </span>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+            <thead className="bg-slate-900/90 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
               <tr>
-                <th className="py-3 px-4">Profile</th>
-                <th className="py-3 px-4">Gender & Identity</th>
-                <th className="py-3 px-4">Looking For</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Badges</th>
-                <th className="py-3 px-4">Created</th>
-                <th className="py-3 px-4 text-right">Moderation Actions</th>
+                <th className="py-3.5 px-4">Profile</th>
+                <th className="py-3.5 px-4">Direct Contact</th>
+                <th className="py-3.5 px-4">Gender & Identity</th>
+                <th className="py-3.5 px-4">Categories</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4">Badges</th>
+                <th className="py-3.5 px-4 text-right">Moderation Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
-                    Loading profiles database...
+                  <td colSpan={7} className="py-16 text-center text-slate-500">
+                    <div className="w-8 h-8 mx-auto border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-2" />
+                    <span>Loading profiles database...</span>
                   </td>
                 </tr>
               ) : profiles.length > 0 ? (
-                profiles.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-900/40 transition-colors">
-                    {/* Profile & Name */}
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-900 shrink-0 border border-slate-800">
-                          <img
-                            src={p.photos?.[0]?.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}`}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1.5 font-bold text-white">
-                            <span>{p.name}</span>
-                            <span className="text-slate-400 font-normal">({p.age})</span>
+                profiles.map((p) => {
+                  const isBlocked = p.status === 'BLOCKED';
+                  const isDeleted = p.status === 'DELETED';
+                  const primaryPhoto =
+                    p.photos?.find((ph: any) => ph.isPrimary)?.url || p.photos?.[0]?.url;
+
+                  return (
+                    <tr
+                      key={p.id}
+                      className={`hover:bg-slate-900/50 transition-colors ${
+                        isBlocked ? 'bg-rose-950/10' : isDeleted ? 'opacity-60 bg-slate-950/40' : ''
+                      }`}
+                    >
+                      {/* Profile & Name */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-xl overflow-hidden bg-slate-900 shrink-0 border border-slate-800 shadow-md">
+                            <img
+                              src={
+                                primaryPhoto ||
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                  p.name
+                                )}&background=9333ea&color=ffffff`
+                              }
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
                           </div>
-                          <span className="text-[11px] text-slate-500 truncate max-w-[150px] block">
-                            {p.user?.email || (p.createdByAdmin ? 'Admin Created' : 'No Email')}
-                          </span>
+                          <div>
+                            <div className="flex items-center gap-1.5 font-bold text-white text-sm">
+                              <span>{p.name}</span>
+                              <span className="text-slate-400 text-xs font-normal">({p.age})</span>
+                            </div>
+                            <span className="text-[11px] text-slate-400 truncate max-w-[170px] block">
+                              {p.user?.email || (p.createdByAdmin ? 'Admin Created' : 'Guest Account')}
+                            </span>
+                            {p.location && (
+                              <span className="text-[10px] text-purple-400 block truncate max-w-[150px]">
+                                📍 {p.location}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Gender */}
-                    <td className="py-3 px-4">
-                      <span className="font-medium text-slate-200">{p.gender}</span>
-                      {p.pronouns && (
-                        <span className="text-[11px] text-slate-500 block">{p.pronouns}</span>
-                      )}
-                    </td>
+                      {/* Direct Contact */}
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-1">
+                          {p.whatsapp ? (
+                            <a
+                              href={`https://wa.me/${p.whatsapp.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-mono"
+                              title="Chat on WhatsApp"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span>{p.whatsapp}</span>
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-slate-600 block">No WhatsApp</span>
+                          )}
 
-                    {/* Looking for */}
-                    <td className="py-3 px-4">
-                      <div className="flex flex-wrap gap-1 max-w-xs">
-                        {p.lookingFor?.slice(0, 2).map((tag: string) => (
-                          <span key={tag} className="px-1.5 py-0.5 rounded bg-slate-900 text-[10px] text-slate-300 border border-slate-800">
-                            {tag}
-                          </span>
-                        ))}
-                        {p.lookingFor?.length > 2 && (
-                          <span className="text-[10px] text-slate-500">+{p.lookingFor.length - 2}</span>
+                          {p.instagram ? (
+                            <a
+                              href={`https://instagram.com/${p.instagram.replace('@', '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] text-pink-400 hover:text-pink-300 font-mono"
+                              title="View Instagram"
+                            >
+                              <svg className="w-3 h-3 fill-current shrink-0" viewBox="0 0 24 24">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                              </svg>
+                              <span>@{p.instagram.replace('@', '')}</span>
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-slate-600 block">No Instagram</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Gender */}
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold text-slate-200">{p.gender}</span>
+                        {p.pronouns && (
+                          <span className="text-[11px] text-slate-400 block">{p.pronouns}</span>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Status */}
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                          p.status === 'ACTIVE'
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : p.status === 'BLOCKED'
-                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
-                        }`}
-                      >
-                        {p.status}
-                      </span>
-                    </td>
+                      {/* Looking for Categories */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {p.lookingFor?.slice(0, 3).map((tag: string) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-0.5 rounded-md bg-slate-900 text-[10px] font-medium text-slate-300 border border-slate-800"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                          {p.lookingFor?.length > 3 && (
+                            <span className="text-[10px] text-purple-400 font-semibold">
+                              +{p.lookingFor.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                    {/* Badges */}
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5">
-                        {p.isVerified && (
-                          <span className="p-1 rounded bg-emerald-500/20 text-emerald-400" title="Verified">
+                      {/* Status */}
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                            p.status === 'ACTIVE'
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : p.status === 'BLOCKED'
+                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+
+                      {/* Badges */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          {p.isVerified && (
+                            <span
+                              className="p-1 rounded-md bg-emerald-500/20 text-emerald-400"
+                              title="Verified by Moderation"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                          {p.isFeatured && (
+                            <span
+                              className="p-1 rounded-md bg-purple-500/20 text-purple-400"
+                              title="Featured Profile"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                          {!p.isVerified && !p.isFeatured && (
+                            <span className="text-slate-600">—</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Moderation Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Block / Unblock Action Button */}
+                          <button
+                            onClick={() => handleToggleBlock(p.id, p.status)}
+                            className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                              isBlocked
+                                ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                                : 'bg-rose-500/10 hover:bg-rose-600 border-rose-500/30 hover:border-rose-500 text-rose-300 hover:text-white'
+                            }`}
+                            title={isBlocked ? 'Unblock profile' : 'Block profile'}
+                          >
+                            <ShieldBan className="w-3.5 h-3.5" />
+                            <span>{isBlocked ? 'Unblock' : 'Block'}</span>
+                          </button>
+
+                          {/* Verify Toggle */}
+                          <button
+                            onClick={() => handleToggleVerify(p.id)}
+                            title={p.isVerified ? 'Remove verification' : 'Verify profile'}
+                            className={`p-1.5 rounded-lg border text-xs transition-colors ${
+                              p.isVerified
+                                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-emerald-300'
+                            }`}
+                          >
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                          </span>
-                        )}
-                        {p.isFeatured && (
-                          <span className="p-1 rounded bg-purple-500/20 text-purple-400" title="Featured">
+                          </button>
+
+                          {/* Feature Toggle */}
+                          <button
+                            onClick={() => handleToggleFeature(p.id)}
+                            title={p.isFeatured ? 'Remove featured' : 'Make featured'}
+                            className={`p-1.5 rounded-lg border text-xs transition-colors ${
+                              p.isFeatured
+                                ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-purple-300'
+                            }`}
+                          >
                             <Sparkles className="w-3.5 h-3.5" />
-                          </span>
-                        )}
-                        {!p.isVerified && !p.isFeatured && (
-                          <span className="text-slate-600">—</span>
-                        )}
-                      </div>
-                    </td>
+                          </button>
 
-                    {/* Created Date */}
-                    <td className="py-3 px-4 text-slate-400 text-[11px]">
-                      {new Date(p.createdAt).toLocaleDateString()}
-                    </td>
+                          {/* View Profile */}
+                          <Link
+                            to={`/profile/${p.id}`}
+                            target="_blank"
+                            title="View public profile"
+                            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
 
-                    {/* Actions */}
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleToggleVerify(p.id)}
-                          title={p.isVerified ? 'Remove verification' : 'Verify profile'}
-                          className={`p-1.5 rounded-lg border text-xs transition-colors ${
-                            p.isVerified
-                              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-emerald-300'
-                          }`}
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          onClick={() => handleToggleFeature(p.id)}
-                          title={p.isFeatured ? 'Remove from featured' : 'Feature profile'}
-                          className={`p-1.5 rounded-lg border text-xs transition-colors ${
-                            p.isFeatured
-                              ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-purple-300'
-                          }`}
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          onClick={() => handleToggleBlock(p.id)}
-                          title={p.status === 'BLOCKED' ? 'Unblock profile' : 'Block profile'}
-                          className={`p-1.5 rounded-lg border text-xs transition-colors ${
-                            p.status === 'BLOCKED'
-                              ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-rose-300'
-                          }`}
-                        >
-                          <ShieldBan className="w-3.5 h-3.5" />
-                        </button>
-
-                        <Link
-                          to={`/profile/${p.id}`}
-                          target="_blank"
-                          title="View public profile"
-                          className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Link>
-
-                        <button
-                          onClick={() => handleDeleteProfile(p.id)}
-                          title="Soft delete profile"
-                          className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {/* Delete Action Button */}
+                          <button
+                            onClick={() => handleDeleteProfile(p.id, p.name)}
+                            title="Delete profile"
+                            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-500/40 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-500">
-                    No profiles found matching search filters.
+                  <td colSpan={7} className="py-12 text-center text-slate-500 space-y-2">
+                    <p className="text-sm font-semibold text-slate-400">
+                      No profiles found matching selected filters.
+                    </p>
+                    <button
+                      onClick={resetFilters}
+                      className="text-xs text-purple-400 hover:text-pink-300 underline"
+                    >
+                      Clear filters to view all profiles
+                    </button>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* 5. Pagination Footer */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-slate-800 flex items-center justify-between bg-slate-900/60 text-xs">
+            <span className="text-slate-400">
+              Page <strong className="text-white">{page}</strong> of{' '}
+              <strong className="text-white">{totalPages}</strong>
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1 transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Previous</span>
+              </button>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1 transition-colors"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

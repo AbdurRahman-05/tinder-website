@@ -77,14 +77,9 @@ export const App: React.FC = () => {
               </ProtectedUserRoute>
             }
           />
-          <Route
-            path="/create-profile"
-            element={
-              <ProtectedUserRoute>
-                <CreateProfilePage />
-              </ProtectedUserRoute>
-            }
-          />
+          {/* Add Account / Add Profile (Open to everyone: guests and users) */}
+          <Route path="/add-account" element={<CreateProfilePage />} />
+          <Route path="/create-profile" element={<CreateProfilePage />} />
           <Route
             path="/edit-profile"
             element={

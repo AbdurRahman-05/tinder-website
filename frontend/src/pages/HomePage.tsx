@@ -69,7 +69,7 @@ export const HomePage: React.FC = () => {
 
           {/* Subheading */}
           <p className="mt-6 text-base sm:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            A safe, inclusive space to discover authentic public profiles, connect through your favorite socials, and build genuine community — with zero forced swipe games.
+            A safe, inclusive directory to discover authentic profiles, get direct WhatsApp numbers & Instagram accounts to connect immediately, and add accounts freely — with zero barriers.
           </p>
 
           {/* CTA Group */}
@@ -83,21 +83,21 @@ export const HomePage: React.FC = () => {
             </Link>
 
             <Link
-              to="/register"
+              to="/add-account"
               className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-white font-semibold text-sm transition-all hover:border-purple-500/50 flex items-center justify-center gap-2"
             >
-              <span>Create Your Profile</span>
+              <span>+ Add Account</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-          {/* Guest Notice */}
+          {/* Guest / Add Info Notice */}
           <div className="mt-4">
             <Link
-              to="/discover"
+              to="/add-account"
               className="text-xs text-slate-400 hover:text-purple-300 underline underline-offset-4 transition-colors"
             >
-              Want to browse first? Continue as Guest without an account →
+              Anyone can add N number of accounts to the site — Click here to Add Account →
             </Link>
           </div>
 
@@ -330,21 +330,21 @@ export const HomePage: React.FC = () => {
 
           <div className="p-6 rounded-2xl glass-card border border-slate-800 space-y-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-              <Lock className="w-5 h-5" />
+              <MessageCircle className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-white">Contact Visibility Toggles</h3>
+            <h3 className="text-base font-bold text-white">Direct WhatsApp & Instagram Contact</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              WhatsApp numbers and Instagram accounts are strictly optional. You can hide or show your links with a single click at any time.
+              Anyone exploring profiles can get their WhatsApp number and Instagram account directly to chat and connect with zero barriers.
             </p>
           </div>
 
           <div className="p-6 rounded-2xl glass-card border border-slate-800 space-y-3">
             <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
-              <MessageCircle className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-white">One-Click Block & Report</h3>
+            <h3 className="text-base font-bold text-white">Add N Number of Accounts</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Block any profile to immediately remove them from your discovery results symmetrically. Report inappropriate conduct directly to our moderation team.
+              Anyone can publish accounts into the directory. Easily add multiple accounts for yourself or community members from your dashboard.
             </p>
           </div>
         </div>
@@ -354,23 +354,23 @@ export const HomePage: React.FC = () => {
       <section className="py-20 bg-gradient-to-t from-slate-950 via-purple-950/30 to-slate-950 border-t border-slate-900">
         <div className="max-w-4xl mx-auto px-4 text-center space-y-6">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white">
-            Ready to find your people?
+            Ready to add an account or explore?
           </h2>
           <p className="text-sm sm:text-base text-slate-300 max-w-xl mx-auto">
-            Join a welcoming community of real people discovering meaningful connections every day.
+            Explore authentic profiles, get their social contacts directly, or add any number of accounts to PRISM.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Link
-              to="/register"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-sm shadow-xl shadow-purple-600/30 transition-all hover:scale-105"
+              to="/add-account"
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white font-semibold text-sm shadow-xl shadow-purple-600/30 transition-all hover:scale-105"
             >
-              Join PRISM Today
+              + Add Account Now
             </Link>
             <Link
               to="/discover"
               className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-semibold text-sm transition-all"
             >
-              Browse as Guest
+              Explore All Profiles
             </Link>
           </div>
         </div>

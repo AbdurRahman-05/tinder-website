@@ -100,7 +100,7 @@ export const getDashboardStats = async (_req: Request, res: Response, next: Next
 
 export const getAdminProfiles = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { q, status, gender, isVerified, isFeatured, page = 1, limit = 20 } = req.query;
+    const { q, status, gender, lookingFor, isVerified, isFeatured, page = 1, limit = 20 } = req.query;
 
     const pageNum = Math.max(1, Number(page));
     const limitNum = Math.min(100, Math.max(1, Number(limit)));
@@ -112,6 +112,8 @@ export const getAdminProfiles = async (req: Request, res: Response, next: NextFu
       where.OR = [
         { name: { contains: q.trim(), mode: 'insensitive' } },
         { user: { email: { contains: q.trim(), mode: 'insensitive' } } },
+        { whatsapp: { contains: q.trim() } },
+        { instagram: { contains: q.trim(), mode: 'insensitive' } },
       ];
     }
 
@@ -123,6 +125,10 @@ export const getAdminProfiles = async (req: Request, res: Response, next: NextFu
       where.gender = gender;
     }
 
+    if (lookingFor && lookingFor !== 'ALL') {
+      where.lookingFor = { has: lookingFor as string };
+    }
+
     if (isVerified !== undefined && isVerified !== 'ALL') {
       where.isVerified = isVerified === 'true';
     }
@@ -131,7 +137,17 @@ export const getAdminProfiles = async (req: Request, res: Response, next: NextFu
       where.isFeatured = isFeatured === 'true';
     }
 
-    const [profiles, total] = await Promise.all([
+    const [
+      profiles,
+      total,
+      totalUsers,
+      totalProfilesCount,
+      activeProfilesCount,
+      blockedProfilesCount,
+      deletedProfilesCount,
+      allProfilesCategories,
+      genderGroups,
+    ] = await Promise.all([
       prisma.profile.findMany({
         where,
         skip,
@@ -142,9 +158,8 @@ export const getAdminProfiles = async (req: Request, res: Response, next: NextFu
             select: { id: true, email: true, status: true },
           },
           photos: {
-            where: { isPrimary: true },
-            select: { url: true },
-            take: 1,
+            orderBy: { isPrimary: 'desc' },
+            select: { url: true, isPrimary: true },
           },
           _count: {
             select: { reports: true, savedBy: true },
@@ -152,7 +167,33 @@ export const getAdminProfiles = async (req: Request, res: Response, next: NextFu
         },
       }),
       prisma.profile.count({ where }),
+      prisma.user.count({ where: { status: { not: 'DELETED' } } }),
+      prisma.profile.count(),
+      prisma.profile.count({ where: { status: 'ACTIVE' } }),
+      prisma.profile.count({ where: { status: 'BLOCKED' } }),
+      prisma.profile.count({ where: { status: 'DELETED' } }),
+      prisma.profile.findMany({
+        select: { lookingFor: true },
+      }),
+      prisma.profile.groupBy({
+        by: ['gender'],
+        _count: { id: true },
+      }),
     ]);
+
+    // Aggregate category counts for lookingFor tags
+    const lookingForCounts: Record<string, number> = {};
+    allProfilesCategories.forEach((p) => {
+      p.lookingFor.forEach((tag) => {
+        lookingForCounts[tag] = (lookingForCounts[tag] || 0) + 1;
+      });
+    });
+
+    // Aggregate gender counts
+    const genderCounts: Record<string, number> = {};
+    genderGroups.forEach((g) => {
+      genderCounts[g.gender] = g._count.id;
+    });
 
     return sendSuccess(res, {
       profiles,
@@ -160,6 +201,15 @@ export const getAdminProfiles = async (req: Request, res: Response, next: NextFu
       page: pageNum,
       limit: limitNum,
       totalPages: Math.ceil(total / limitNum),
+      stats: {
+        totalUsers,
+        totalProfiles: totalProfilesCount,
+        activeProfiles: activeProfilesCount,
+        blockedProfiles: blockedProfilesCount,
+        deletedProfiles: deletedProfilesCount,
+        lookingForCounts,
+        genderCounts,
+      },
     });
   } catch (error) {
     next(error);
@@ -354,6 +404,24 @@ export const toggleBlockProfile = async (req: Request, res: Response, next: Next
 export const deleteProfileByAdmin = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = req.params.id as string;
+    const isPermanent = req.query.permanent === 'true';
+
+    if (isPermanent) {
+      await prisma.profile.delete({
+        where: { id },
+      });
+      if (req.user) {
+        await prisma.adminAction.create({
+          data: {
+            adminId: req.user.id,
+            action: 'PERMANENT_DELETE_PROFILE',
+            targetType: 'PROFILE',
+            targetId: id,
+          },
+        });
+      }
+      return sendSuccess(res, null, 'Profile permanently deleted');
+    }
 
     const updated = await prisma.profile.update({
       where: { id },
@@ -375,7 +443,7 @@ export const deleteProfileByAdmin = async (req: Request, res: Response, next: Ne
       });
     }
 
-    return sendSuccess(res, updated, 'Profile soft deleted');
+    return sendSuccess(res, updated, 'Profile deleted successfully');
   } catch (error) {
     next(error);
   }

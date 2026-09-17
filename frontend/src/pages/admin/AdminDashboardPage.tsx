@@ -49,14 +49,14 @@ export const AdminDashboardPage: React.FC = () => {
   const { kpi, charts } = data;
 
   const kpiCards = [
-    { title: 'Total Registered Users', value: kpi.totalUsers, icon: Users, color: 'text-purple-400', bg: 'bg-purple-500/15' },
-    { title: 'Total Profiles', value: kpi.totalProfiles, icon: UserCheck, color: 'text-blue-400', bg: 'bg-blue-500/15' },
-    { title: 'Active Public Profiles', value: kpi.activeProfiles, icon: ShieldCheck, color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
-    { title: 'Hidden Profiles', value: kpi.hiddenProfiles, icon: EyeOff, color: 'text-amber-400', bg: 'bg-amber-500/15' },
-    { title: 'Blocked Profiles', value: kpi.blockedProfiles, icon: ShieldBan, color: 'text-rose-400', bg: 'bg-rose-500/15' },
+    { title: 'Total Registered Users', value: kpi.totalUsers, icon: Users, color: 'text-purple-400', bg: 'bg-purple-500/15', link: '/admin/users' },
+    { title: 'Total Profiles', value: kpi.totalProfiles, icon: UserCheck, color: 'text-blue-400', bg: 'bg-blue-500/15', link: '/admin/profiles' },
+    { title: 'Active Public Profiles', value: kpi.activeProfiles, icon: ShieldCheck, color: 'text-emerald-400', bg: 'bg-emerald-500/15', link: '/admin/profiles?status=ACTIVE' },
+    { title: 'Hidden Profiles', value: kpi.hiddenProfiles, icon: EyeOff, color: 'text-amber-400', bg: 'bg-amber-500/15', link: '/admin/profiles' },
+    { title: 'Blocked Profiles', value: kpi.blockedProfiles, icon: ShieldBan, color: 'text-rose-400', bg: 'bg-rose-500/15', link: '/admin/profiles?status=BLOCKED' },
     { title: 'Pending Abuse Reports', value: kpi.pendingReports, icon: ShieldAlert, color: 'text-red-400', bg: 'bg-red-500/15', link: '/admin/reports' },
-    { title: 'New Users Today', value: kpi.newUsersToday, icon: UserPlus, color: 'text-cyan-400', bg: 'bg-cyan-500/15' },
-    { title: 'New Profiles Today', value: kpi.newProfilesToday, icon: TrendingUp, color: 'text-pink-400', bg: 'bg-pink-500/15' },
+    { title: 'New Users Today', value: kpi.newUsersToday, icon: UserPlus, color: 'text-cyan-400', bg: 'bg-cyan-500/15', link: '/admin/users' },
+    { title: 'New Profiles Today', value: kpi.newProfilesToday, icon: TrendingUp, color: 'text-pink-400', bg: 'bg-pink-500/15', link: '/admin/profiles' },
   ];
 
   const maxGenderCount = Math.max(...charts.genderDistribution.map((g) => g.count), 1);
@@ -128,10 +128,18 @@ export const AdminDashboardPage: React.FC = () => {
 
           <div className="space-y-3 pt-2">
             {charts.genderDistribution.map((item) => (
-              <div key={item.name} className="space-y-1">
+              <Link
+                key={item.name}
+                to={`/admin/profiles?gender=${encodeURIComponent(item.name)}`}
+                className="block space-y-1 group hover:opacity-90 transition-opacity"
+              >
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-300 font-medium">{item.name}</span>
-                  <span className="text-purple-400 font-bold">{item.count}</span>
+                  <span className="text-slate-300 font-medium group-hover:text-purple-300 transition-colors">
+                    {item.name}
+                  </span>
+                  <span className="text-purple-400 font-bold group-hover:underline">
+                    {item.count} profiles →
+                  </span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-900 overflow-hidden">
                   <div
@@ -139,7 +147,7 @@ export const AdminDashboardPage: React.FC = () => {
                     style={{ width: `${(item.count / maxGenderCount) * 100}%` }}
                   />
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -150,15 +158,23 @@ export const AdminDashboardPage: React.FC = () => {
             <h3 className="text-sm font-bold text-white uppercase tracking-wider text-pink-400">
               Looking-For Categories
             </h3>
-            <span className="text-xs text-slate-500 font-medium">Multi-intent tags</span>
+            <span className="text-xs text-slate-500 font-medium">Click to filter profiles</span>
           </div>
 
           <div className="space-y-3 pt-2">
             {charts.lookingForDistribution.map((item) => (
-              <div key={item.name} className="space-y-1">
+              <Link
+                key={item.name}
+                to={`/admin/profiles?lookingFor=${encodeURIComponent(item.name)}`}
+                className="block space-y-1 group hover:opacity-90 transition-opacity"
+              >
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-300 font-medium">{item.name}</span>
-                  <span className="text-pink-400 font-bold">{item.count}</span>
+                  <span className="text-slate-300 font-medium group-hover:text-pink-300 transition-colors">
+                    {item.name}
+                  </span>
+                  <span className="text-pink-400 font-bold group-hover:underline">
+                    {item.count} profiles →
+                  </span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-900 overflow-hidden">
                   <div
@@ -166,7 +182,7 @@ export const AdminDashboardPage: React.FC = () => {
                     style={{ width: `${(item.count / maxLookingForCount) * 100}%` }}
                   />
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

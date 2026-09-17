@@ -63,7 +63,7 @@ export const RegisterPage: React.FC = () => {
         dateOfBirth,
         termsAccepted,
       });
-      navigate('/create-profile');
+      navigate('/add-account');
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -195,7 +195,7 @@ export const RegisterPage: React.FC = () => {
               disabled={isSubmitting || (calculatedAge !== null && calculatedAge < 18)}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white font-semibold text-sm shadow-xl shadow-purple-600/25 transition-all flex items-center justify-center gap-2"
             >
-              <span>{isSubmitting ? 'Creating Account...' : 'Continue to Profile Setup'}</span>
+              <span>{isSubmitting ? 'Creating Account...' : 'Continue to Add Account'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -209,11 +209,18 @@ export const RegisterPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Guest Alternative */}
-        <div className="text-center">
-          <Link to="/discover" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-            Just exploring? Continue as Guest →
-          </Link>
+        {/* Direct Add Account or Guest Alternative */}
+        <div className="text-center space-y-2">
+          <div>
+            <Link to="/add-account" className="text-xs font-semibold text-purple-400 hover:text-pink-300 transition-colors">
+              Just want to list an account without registering? Add Account Directly →
+            </Link>
+          </div>
+          <div>
+            <Link to="/discover" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+              Just exploring? Continue as Guest →
+            </Link>
+          </div>
         </div>
       </div>
     </div>

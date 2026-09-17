@@ -146,11 +146,11 @@ export const getProfiles = async (req: Request, res: Response, next: NextFunctio
       prisma.profile.count({ where }),
     ]);
 
-    // Sanitize contact info based on visibility permissions
+    // Provide contact info directly so anyone exploring can reach out via WhatsApp & Instagram
     const sanitizedProfiles = profiles.map((p) => ({
       ...p,
-      whatsapp: p.whatsappVisible ? p.whatsapp : null,
-      instagram: p.instagramVisible ? p.instagram : null,
+      whatsapp: p.whatsapp || null,
+      instagram: p.instagram || null,
     }));
 
     return sendSuccess(res, {
@@ -187,6 +187,8 @@ export const getFeaturedProfiles = async (_req: Request, res: Response, next: Ne
         bio: true,
         location: true,
         isVerified: true,
+        whatsapp: true,
+        instagram: true,
         photos: {
           orderBy: { isPrimary: 'desc' },
           take: 1,
@@ -267,10 +269,10 @@ export const getProfileById = async (req: Request, res: Response, next: NextFunc
       lookingFor: profile.lookingFor,
       bio: profile.bio,
       location: profile.location,
-      whatsapp: isOwner || isAdmin || profile.whatsappVisible ? profile.whatsapp : null,
-      whatsappVisible: profile.whatsappVisible,
-      instagram: isOwner || isAdmin || profile.instagramVisible ? profile.instagram : null,
-      instagramVisible: profile.instagramVisible,
+      whatsapp: profile.whatsapp || null,
+      whatsappVisible: profile.whatsappVisible !== false,
+      instagram: profile.instagram || null,
+      instagramVisible: profile.instagramVisible !== false,
       visibility: profile.visibility,
       status: profile.status,
       isVerified: profile.isVerified,
@@ -294,9 +296,7 @@ export const getProfileById = async (req: Request, res: Response, next: NextFunc
 
 export const createProfile = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      return sendError(res, 'Unauthorized', 401);
-    }
+    const userId = req.user ? req.user.id : null;
 
     const {
       name,
@@ -308,9 +308,9 @@ export const createProfile = async (req: Request, res: Response, next: NextFunct
       bio,
       location,
       whatsapp,
-      whatsappVisible,
+      whatsappVisible = true,
       instagram,
-      instagramVisible,
+      instagramVisible = true,
       visibility = 'PUBLIC',
       photoUrl,
     } = req.body;
@@ -319,13 +319,13 @@ export const createProfile = async (req: Request, res: Response, next: NextFunct
     const age = calculateAge(dob);
 
     if (age < 18) {
-      return sendError(res, 'You must be at least 18 years old to create a profile on PRISM.', 400);
+      return sendError(res, 'You must be at least 18 years old to add an account on PRISM.', 400);
     }
 
     // Create profile
     const profile = await prisma.profile.create({
       data: {
-        userId: req.user.id,
+        userId,
         name,
         dateOfBirth: dob,
         age,
@@ -336,9 +336,9 @@ export const createProfile = async (req: Request, res: Response, next: NextFunct
         bio,
         location,
         whatsapp: whatsapp ? whatsapp.trim() : null,
-        whatsappVisible: Boolean(whatsappVisible),
+        whatsappVisible: whatsappVisible !== false,
         instagram: instagram ? instagram.replace('@', '').trim() : null,
-        instagramVisible: Boolean(instagramVisible),
+        instagramVisible: instagramVisible !== false,
         visibility,
         status: 'ACTIVE',
         isVerified: false,
@@ -359,7 +359,7 @@ export const createProfile = async (req: Request, res: Response, next: NextFunct
       },
     });
 
-    return sendSuccess(res, profile, 'Profile created successfully!', 201);
+    return sendSuccess(res, profile, 'Account added successfully!', 201);
   } catch (error) {
     next(error);
   }
@@ -494,10 +494,6 @@ export const deleteProfile = async (req: Request, res: Response, next: NextFunct
 
 export const uploadProfilePhoto = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      return sendError(res, 'Unauthorized', 401);
-    }
-
     if (!req.file) {
       return sendError(res, 'No image file uploaded', 400);
     }
@@ -512,16 +508,23 @@ export const uploadProfilePhoto = async (req: Request, res: Response, next: Next
       if (!profile || profile.status === 'DELETED') {
         return sendError(res, 'Profile not found', 404);
       }
-      const isOwner = profile.userId === req.user.id;
-      const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(req.user.role);
-      if (!isOwner && !isAdmin) {
-        return sendError(res, 'You do not have permission to upload photos for this profile', 403);
+      if (profile.userId) {
+        if (!req.user) {
+          return sendError(res, 'Unauthorized', 401);
+        }
+        const isOwner = profile.userId === req.user.id;
+        const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(req.user.role);
+        if (!isOwner && !isAdmin) {
+          return sendError(res, 'You do not have permission to upload photos for this profile', 403);
+        }
       }
-    } else {
+    } else if (req.user) {
       profile = await prisma.profile.findFirst({
         where: { userId: req.user.id, status: { not: 'DELETED' } },
         orderBy: { createdAt: 'desc' },
       });
+    } else {
+      return sendError(res, 'Profile ID is required for photo upload', 400);
     }
 
     if (!profile) {
