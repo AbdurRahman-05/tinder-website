@@ -404,46 +404,115 @@ export const toggleBlockProfile = async (req: Request, res: Response, next: Next
 export const deleteProfileByAdmin = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = req.params.id as string;
-    const isPermanent = req.query.permanent === 'true';
+    const profile = await prisma.profile.findUnique({ where: { id } });
+    if (!profile) return sendError(res, 'Profile not found', 404);
 
-    if (isPermanent) {
-      await prisma.profile.delete({
-        where: { id },
-      });
-      if (req.user) {
-        await prisma.adminAction.create({
-          data: {
-            adminId: req.user.id,
-            action: 'PERMANENT_DELETE_PROFILE',
-            targetType: 'PROFILE',
-            targetId: id,
-          },
-        });
-      }
-      return sendSuccess(res, null, 'Profile permanently deleted');
-    }
-
-    const updated = await prisma.profile.update({
+    await prisma.profile.delete({
       where: { id },
-      data: {
-        status: 'DELETED',
-        visibility: 'HIDDEN',
-        deletedAt: new Date(),
-      },
     });
 
     if (req.user) {
       await prisma.adminAction.create({
         data: {
           adminId: req.user.id,
-          action: 'DELETE_PROFILE',
+          action: 'PERMANENT_DELETE_PROFILE',
           targetType: 'PROFILE',
           targetId: id,
+          metadata: { name: profile.name, whatsapp: profile.whatsapp, instagram: profile.instagram },
         },
       });
     }
 
-    return sendSuccess(res, updated, 'Profile deleted successfully');
+    return sendSuccess(res, null, 'Profile permanently deleted from the site and database');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const batchBlockProfiles = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return sendError(res, 'Please provide an array of profile IDs to block', 400);
+    }
+
+    const result = await prisma.profile.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'BLOCKED' },
+    });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: 'BATCH_BLOCK_PROFILES',
+          targetType: 'PROFILE',
+          targetId: ids.join(','),
+          metadata: { count: result.count, ids },
+        },
+      });
+    }
+
+    return sendSuccess(res, { count: result.count }, `Successfully blocked ${result.count} profile(s)`);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const batchUnblockProfiles = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return sendError(res, 'Please provide an array of profile IDs to unblock', 400);
+    }
+
+    const result = await prisma.profile.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'ACTIVE' },
+    });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: 'BATCH_UNBLOCK_PROFILES',
+          targetType: 'PROFILE',
+          targetId: ids.join(','),
+          metadata: { count: result.count, ids },
+        },
+      });
+    }
+
+    return sendSuccess(res, { count: result.count }, `Successfully unblocked ${result.count} profile(s)`);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const batchDeleteProfiles = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return sendError(res, 'Please provide an array of profile IDs to delete', 400);
+    }
+
+    const result = await prisma.profile.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    if (req.user) {
+      await prisma.adminAction.create({
+        data: {
+          adminId: req.user.id,
+          action: 'BATCH_DELETE_PROFILES',
+          targetType: 'PROFILE',
+          targetId: ids.join(','),
+          metadata: { count: result.count, ids },
+        },
+      });
+    }
+
+    return sendSuccess(res, { count: result.count }, `Successfully permanently deleted ${result.count} profile(s) from database`);
   } catch (error) {
     next(error);
   }

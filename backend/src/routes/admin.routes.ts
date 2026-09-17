@@ -7,6 +7,9 @@ import {
   toggleFeatureProfile,
   toggleBlockProfile,
   deleteProfileByAdmin,
+  batchBlockProfiles,
+  batchUnblockProfiles,
+  batchDeleteProfiles,
   getAdminReports,
   updateReportStatus,
   getAdminUsers,
@@ -29,6 +32,9 @@ router.get('/analytics', requireModerator, getDashboardStats);
 // Profile Moderation
 router.get('/profiles', requireModerator, getAdminProfiles);
 router.post('/profiles', requireAdmin, createAdminProfile);
+router.post('/profiles/batch-block', requireModerator, batchBlockProfiles);
+router.post('/profiles/batch-unblock', requireModerator, batchUnblockProfiles);
+router.post('/profiles/batch-delete', requireAdmin, batchDeleteProfiles);
 router.post('/profiles/:id/verify', requireModerator, toggleVerifyProfile);
 router.post('/profiles/:id/feature', requireAdmin, toggleFeatureProfile);
 router.post('/profiles/:id/block', requireModerator, toggleBlockProfile);

@@ -63,6 +63,7 @@ export const AdminProfilesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Filters initialized from URL parameters if present
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -109,6 +110,69 @@ export const AdminProfilesPage: React.FC = () => {
     fetchProfiles();
   };
 
+  const toggleSelectRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(new Set(profiles.map((p) => p.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleBatchBlock = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Are you sure you want to BLOCK all ${selectedIds.size} selected profile(s)?`)) return;
+    try {
+      const res = await api.post('/admin/profiles/batch-block', { ids: Array.from(selectedIds) });
+      setActionMessage(res.message || `Successfully blocked ${selectedIds.size} profile(s)`);
+      setSelectedIds(new Set());
+      fetchProfiles();
+    } catch (err: any) {
+      alert(err.message || 'Failed to batch block profiles');
+    }
+  };
+
+  const handleBatchUnblock = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Are you sure you want to UNBLOCK all ${selectedIds.size} selected profile(s)?`)) return;
+    try {
+      const res = await api.post('/admin/profiles/batch-unblock', { ids: Array.from(selectedIds) });
+      setActionMessage(res.message || `Successfully unblocked ${selectedIds.size} profile(s)`);
+      setSelectedIds(new Set());
+      fetchProfiles();
+    } catch (err: any) {
+      alert(err.message || 'Failed to batch unblock profiles');
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const confirmDelete = confirm(
+      `PERMANENTLY DELETE ${selectedIds.size} selected profile(s)?\n\nWARNING: This will completely wipe these profiles and their data from the site and database. This action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const res = await api.post('/admin/profiles/batch-delete', { ids: Array.from(selectedIds) });
+      setActionMessage(res.message || `Permanently deleted ${selectedIds.size} profile(s) from database`);
+      setSelectedIds(new Set());
+      fetchProfiles();
+    } catch (err: any) {
+      alert(err.message || 'Failed to batch delete profiles');
+    }
+  };
+
   const handleToggleBlock = async (id: string, currentStatus: string) => {
     const actionName = currentStatus === 'BLOCKED' ? 'Unblock' : 'Block';
     if (!confirm(`Are you sure you want to ${actionName.toLowerCase()} this profile?`)) return;
@@ -123,13 +187,18 @@ export const AdminProfilesPage: React.FC = () => {
 
   const handleDeleteProfile = async (id: string, profileName: string) => {
     const confirmDelete = confirm(
-      `Delete profile "${profileName}"?\n\nClick OK to soft-delete (hide from public directory).\nCancel to keep it.`
+      `PERMANENTLY DELETE profile "${profileName}"?\n\nThis will completely remove this profile from the site and database. This cannot be undone.`
     );
     if (!confirmDelete) return;
 
     try {
       await api.delete(`/admin/profiles/${id}`);
-      setActionMessage(`Profile "${profileName}" deleted successfully`);
+      setActionMessage(`Profile "${profileName}" permanently deleted from database`);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       fetchProfiles();
     } catch (err: any) {
       alert(err.message || 'Failed to delete profile');
@@ -209,7 +278,7 @@ export const AdminProfilesPage: React.FC = () => {
       )}
 
       {/* 2. Total User Count & Profiles KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         {/* Total Users */}
         <div className="p-4 rounded-2xl glass-card border border-purple-500/30 bg-purple-950/20">
           <div className="flex items-center justify-between">
@@ -238,7 +307,7 @@ export const AdminProfilesPage: React.FC = () => {
             {stats?.totalProfiles ?? total}
           </div>
           <span className="text-[10px] text-blue-400/80 mt-0.5 block font-medium">
-            Directory listings
+            Active in database
           </span>
         </div>
 
@@ -254,7 +323,7 @@ export const AdminProfilesPage: React.FC = () => {
             {stats?.activeProfiles ?? 0}
           </div>
           <span className="text-[10px] text-emerald-400/80 mt-0.5 block font-medium">
-            Public in discovery
+            Public discovery
           </span>
         </div>
 
@@ -270,23 +339,7 @@ export const AdminProfilesPage: React.FC = () => {
             {stats?.blockedProfiles ?? 0}
           </div>
           <span className="text-[10px] text-rose-400/80 mt-0.5 block font-medium">
-            Hidden / suspended
-          </span>
-        </div>
-
-        {/* Deleted Profiles */}
-        <div className="p-4 rounded-2xl glass-card border border-slate-700 bg-slate-900/40 col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Deleted Profiles</span>
-            <div className="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center">
-              <Trash2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-white tracking-tight">
-            {stats?.deletedProfiles ?? 0}
-          </div>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">
-            Archived records
+            Restricted / blocked
           </span>
         </div>
       </div>
@@ -396,7 +449,6 @@ export const AdminProfilesPage: React.FC = () => {
               <option value="ALL">All Statuses ({stats?.totalProfiles ?? total})</option>
               <option value="ACTIVE">Active ({stats?.activeProfiles ?? 0})</option>
               <option value="BLOCKED">Blocked ({stats?.blockedProfiles ?? 0})</option>
-              <option value="DELETED">Deleted ({stats?.deletedProfiles ?? 0})</option>
             </select>
           </div>
         </div>
@@ -417,6 +469,15 @@ export const AdminProfilesPage: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-900/90 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
               <tr>
+                <th className="py-3.5 px-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={profiles.length > 0 && profiles.every((p) => selectedIds.has(p.id))}
+                    onChange={handleSelectAll}
+                    title="Select/Deselect all on this page"
+                    className="w-4 h-4 rounded bg-slate-950 border-slate-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-slate-900 cursor-pointer accent-purple-600"
+                  />
+                </th>
                 <th className="py-3.5 px-4">Profile</th>
                 <th className="py-3.5 px-4">Direct Contact</th>
                 <th className="py-3.5 px-4">Gender & Identity</th>
@@ -429,7 +490,7 @@ export const AdminProfilesPage: React.FC = () => {
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-slate-500">
+                  <td colSpan={8} className="py-16 text-center text-slate-500">
                     <div className="w-8 h-8 mx-auto border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-2" />
                     <span>Loading profiles database...</span>
                   </td>
@@ -437,7 +498,7 @@ export const AdminProfilesPage: React.FC = () => {
               ) : profiles.length > 0 ? (
                 profiles.map((p) => {
                   const isBlocked = p.status === 'BLOCKED';
-                  const isDeleted = p.status === 'DELETED';
+                  const isSelected = selectedIds.has(p.id);
                   const primaryPhoto =
                     p.photos?.find((ph: any) => ph.isPrimary)?.url || p.photos?.[0]?.url;
 
@@ -445,9 +506,23 @@ export const AdminProfilesPage: React.FC = () => {
                     <tr
                       key={p.id}
                       className={`hover:bg-slate-900/50 transition-colors ${
-                        isBlocked ? 'bg-rose-950/10' : isDeleted ? 'opacity-60 bg-slate-950/40' : ''
+                        isSelected
+                          ? 'bg-purple-950/25 border-l-2 border-l-purple-500'
+                          : isBlocked
+                          ? 'bg-rose-950/10'
+                          : ''
                       }`}
                     >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-4 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectRow(p.id)}
+                          className="w-4 h-4 rounded bg-slate-950 border-slate-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-slate-900 cursor-pointer accent-purple-600"
+                        />
+                      </td>
+
                       {/* Profile & Name */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
@@ -652,7 +727,7 @@ export const AdminProfilesPage: React.FC = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500 space-y-2">
+                  <td colSpan={8} className="py-12 text-center text-slate-500 space-y-2">
                     <p className="text-sm font-semibold text-slate-400">
                       No profiles found matching selected filters.
                     </p>
@@ -698,6 +773,60 @@ export const AdminProfilesPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* 6. Floating Sticky Multi-Select Batch Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-purple-500/50 shadow-2xl shadow-purple-950/80 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2 pr-3 border-r border-slate-700">
+            <span className="w-6 h-6 rounded-lg bg-purple-600 text-white font-bold text-xs flex items-center justify-center">
+              {selectedIds.size}
+            </span>
+            <span className="text-xs font-semibold text-slate-200 hidden sm:inline">
+              Selected
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Batch Block */}
+            <button
+              onClick={handleBatchBlock}
+              className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-600 border border-amber-500/40 hover:border-amber-500 text-amber-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+              title="Block all selected profiles"
+            >
+              <ShieldBan className="w-3.5 h-3.5" />
+              <span>Batch Block</span>
+            </button>
+
+            {/* Batch Unblock */}
+            <button
+              onClick={handleBatchUnblock}
+              className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-600 border border-emerald-500/40 hover:border-emerald-500 text-emerald-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+              title="Unblock all selected profiles"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Batch Unblock</span>
+            </button>
+
+            {/* Batch Delete (Permanent) */}
+            <button
+              onClick={handleBatchDelete}
+              className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-rose-600/30"
+              title="Permanently wipe selected profiles from database"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Batch Delete (Permanent)</span>
+            </button>
+
+            {/* Clear Selection */}
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-medium transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

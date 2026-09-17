@@ -12,6 +12,7 @@ import {
   PlusCircle,
   Shield,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -59,6 +60,18 @@ export const Navbar: React.FC = () => {
             >
               <Compass className="w-4 h-4" />
               <span>Discover</span>
+            </Link>
+
+            <Link
+              to="/events"
+              className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${
+                isActive('/events')
+                  ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Calendar className="w-4 h-4 text-pink-400" />
+              <span>Events</span>
             </Link>
 
             <Link
@@ -171,6 +184,15 @@ export const Navbar: React.FC = () => {
             >
               <Compass className="w-5 h-5 text-purple-400" />
               <span>Discover People</span>
+            </Link>
+
+            <Link
+              to="/events"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 flex items-center space-x-3"
+            >
+              <Calendar className="w-5 h-5 text-pink-400" />
+              <span>Events 🎉</span>
             </Link>
 
             <Link

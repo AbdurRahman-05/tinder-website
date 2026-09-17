@@ -198,3 +198,43 @@ model Category {
 
   @@index([type])
 }
+
+enum EventStatus {
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+model Event {
+  id             String      @id @default(cuid())
+  title          String
+  description    String
+  category       String      // "Party", "Meetup", "Outing", "Club Night", "Workshop", "Other"
+  date           DateTime
+  time           String?     // e.g. "7:00 PM - 11:00 PM"
+  location       String      // e.g. "Skyline Rooftop, New York"
+  isVirtual      Boolean     @default(false)
+  virtualLink    String?
+  imageUrl       String?
+  
+  // Contact & Registration Channels
+  whatsapp       String?     // Coordinator WhatsApp
+  instagram      String?     // Coordinator or venue Instagram handle
+  googleFormUrl  String?     // Google Form RSVP URL
+  websiteUrl     String?     // External ticket / info link
+  
+  creatorId      String?
+  creatorName    String?     // Organizer or Host name
+  creatorContact String?
+  
+  status         EventStatus @default(ACTIVE)
+  isFeatured     Boolean     @default(false)
+  
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  
+  @@index([status])
+  @@index([category])
+  @@index([date])
+}
+

@@ -8,6 +8,7 @@ import { Footer } from './components/Footer';
 import { HomePage } from './pages/HomePage';
 import { DiscoverPage } from './pages/DiscoverPage';
 import { ProfileDetailPage } from './pages/ProfileDetailPage';
+import { EventsPage } from './pages/EventsPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { CreateProfilePage } from './pages/CreateProfilePage';
@@ -58,6 +59,7 @@ export const App: React.FC = () => {
           {/* Public & Guest Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/discover" element={<DiscoverPage />} />
+          <Route path="/events" element={<EventsPage />} />
           <Route path="/profile/:id" element={<ProfileDetailPage />} />
           <Route path="/safety" element={<SafetyPage />} />
           <Route path="/terms" element={<TermsPage />} />
